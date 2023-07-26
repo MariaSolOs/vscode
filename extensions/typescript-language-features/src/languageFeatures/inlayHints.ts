@@ -8,7 +8,7 @@ import { DocumentSelector } from '../configuration/documentSelector';
 import { LanguageDescription } from '../configuration/languageDescription';
 import { API } from '../tsServer/api';
 import type * as Proto from '../tsServer/protocol/protocol';
-import { Position } from '../typeConverters';
+import { Location, Position } from '../typeConverters';
 import { ClientCapability, ITypeScriptServiceClient } from '../typescriptService';
 import { Disposable } from '../utils/dispose';
 import FileConfigurationManager, { InlayHintSettingNames, getInlayHintsPreferences } from './fileConfigurationManager';
@@ -75,9 +75,19 @@ class TypeScriptInlayHintsProvider extends Disposable implements vscode.InlayHin
 		}
 
 		return response.body.map(hint => {
+			const label = typeof hint.text === 'string' ?
+				hint.text :
+				// @ts-expect-error
+				hint.text.map(({ text, span }) => {
+					const labelPart = new vscode.InlayHintLabelPart(text);
+					labelPart.location = Location.fromTextSpan(this.client.toResource(span.file), span);
+
+					return labelPart;
+				});
+
 			const result = new vscode.InlayHint(
 				Position.fromLocation(hint.position),
-				hint.text,
+				label,
 				hint.kind && fromProtocolInlayHintKind(hint.kind)
 			);
 			result.paddingLeft = hint.whitespaceBefore;
